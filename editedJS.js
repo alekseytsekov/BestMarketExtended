@@ -32,6 +32,7 @@ tokenContract.buyTokens(options, function(err, res){
 // get price on register buyer/seller
 
 let approveEvent = tokenContract.Approval();
+let tempPrice = '';
 
 marketContract.registerTax.call(function(err, price){
     if (err) {
@@ -39,6 +40,7 @@ marketContract.registerTax.call(function(err, price){
         return;
     }
 
+    tempPrice = price;
     // show price
     // confirm
 
@@ -60,17 +62,22 @@ approveEvent.watch(function(err, result){
         return;
     }
 
-    let tempOpts = {
-        from: userAddress,
-        gas: 1000000
-    };
+    // check result for needed args
+    let isMyEvent = false; // result.args.owner === userAddress && result.args.marketContractAddress && result.args.value === tempPrice
 
-    marketContract.registerAsSeller(tempOpts, function(err, res){
-        if (err) {
-            //process error
-            return;
-        }
-
-        // show result
-    });
+    if(isMyEvent){
+        let tempOpts = {
+            from: userAddress,
+            gas: 1000000
+        };
+    
+        marketContract.registerAsSeller(tempOpts, function(err, res){
+            if (err) {
+                //process error
+                return;
+            }
+    
+            // show result
+        });
+    }
 });
