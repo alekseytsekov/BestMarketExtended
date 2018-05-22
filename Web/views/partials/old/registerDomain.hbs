@@ -1,0 +1,79 @@
+<div class="row">
+    <div class="col-xs-12 text-center">
+        <h1><b>Register a domain</b></h1>
+    </div>
+
+    <br>
+
+    <div class="form-group col-xs-8 col-xs-offset-2">
+
+        <br>
+        <br>
+        <br>
+
+        <div class="form-label"><label for="userAddress" class="form">Current address</label></div>
+        <input class="form-control" id="userAddress" type="text">
+        <br>
+        <label for="domain-name">Domain name</label>
+        <input class="form-control" id="domain-name" name="domain-name" type="text" placeholder="domain name">  
+        <br>
+        <label for="ip-address">IP address</label>
+        <input class="form-control" id="ip-address" name="ip-address" type="text" placeholder="ip address"> 
+        <br>
+        <button id="btn-domain-register" type="button" class="btn btn-default">Register</button>
+    </div>
+
+</div>
+
+<script>
+    window.addEventListener('load', function(){
+        if(hasMetaMask){
+
+            $('#btn-domain-register').click(registerDomain);
+
+            function registerDomain(){
+                let userAddress = $('#userAddress').val();
+                let domainName = $('#domain-name').val();
+                let ipAddress = $('#ip-address').val();
+
+                if (domainName.length < 5 || domainName.length > 50) {
+                    msgHandler.showErrorMsg('Domain name length range should be greater than 4 and less than 50 symbols!')
+                    return;
+                }
+
+                let option = {
+                    from: userAddress,
+                    gas: 1000000,
+                };
+
+                contract.getPrice(domainName, option, function (err, result) {
+                    if (err) {
+                        msgHandler.showErrorMsg("Something went wrong!");
+                        console.log(err);
+                        return;
+                    }
+
+                    option.value = JSON.parse(result);// `${web3.toWei(1, 'ether')}`,
+
+
+                    contract.register(domainName, ipConverter.ipToHex(ipAddress), option, function (err, result) {
+                        if (err) {
+                            msgHandler.showErrorMsg("Something went wrong!");
+                            console.log(err);
+                            return;
+                        }
+
+                        // tx hash
+				        let msg =
+					    `Successfully register a domain!! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${result}">${result}</a>`;
+                        msgHandler.showSuccessMsg(msg);
+                    });
+
+                    //$('#show-result').val(web3._extend.utils.fromWei(result, 'ether'));
+                });
+            }
+        }
+    })
+</script>
+
+<script src="/javascripts/ipConverter.js"></script>

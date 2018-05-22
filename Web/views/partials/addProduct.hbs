@@ -1,0 +1,198 @@
+<div class="row">
+    <div class="col-xs-12 text-center">
+        <h1>
+            <b>Add Product</b>
+        </h1>
+    </div>
+
+    <br>
+
+    <div class="col-xs-12 text-center">
+        <h3>this service is free, just pay your gas :)</h3>
+    </div>
+
+    <div class="form-group col-xs-6 col-xs-offset-3">
+
+        <br>
+        <br>
+        <br>
+
+        <div class="col-xs-12">
+            <label for="userAddress" class="form">Your address</label>
+        </div>
+        <input class="form-control" id="userAddress" type="text" readonly>
+        <br>
+
+        <div class="col-xs-12">
+            <label for="productName" class="form">Product name</label>
+        </div>
+        <input class="form-control" id="productName" type="text">
+        <br>
+
+        <div class="col-xs-12">
+            <label for="productPrice" class="form">Product price</label>
+        </div>
+        <input class="form-control" id="productPrice" type="text" placeholder="type price in tokens 0.05 or 4">
+        <br>
+
+        <div class="col-xs-12">
+            <label for="productDesc" class="form">Product description</label>
+        </div>
+        <textarea class="form-control" id="productDesc"></textarea>
+        <br>
+
+        <div class="col-xs-12">
+            <label for="productResource" class="form">Resource</label>
+        </div>
+
+        <div class="row">
+            <input type="hidden" id="ipfs-address" value="">
+            <div class="col-xs-10">
+                <input class="form-control" id="productResource" type="file">
+            </div>
+            <div class="col-xs-2">
+                <button id="btn-upload" class="btn btn-default" type="button">Upload</button>
+                <br>
+            </div>
+        </div>
+
+        <div class="col-xs-12">
+            <br>
+            <span id="output" class="hide-me"></span>
+        </div>
+        
+        <div class="row">
+            <div class="col-xs-12">
+                <br>
+                <button id="btn-seller-add" type="button" class="btn btn-success">Add</button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+window.addEventListener('load', function(){
+    if(hasMetaMask){
+
+        // msgHandler.showErrorMsg('Value should be a number and cannot be smaller than 0(zero)!');
+        // let msg = `Successfully buy tokens ${tkns}! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${res}">${res}</a>`;
+        // msgHandler.showSuccessMsg(msg);
+
+        function isValidPrice(price) {
+
+			if (isNaN(price)) {
+				return false;
+			}
+
+			if (price === '' || price === 'undefined') {
+				return false;
+			}
+
+			let number = parseFloat(price);
+
+			if (number < 0) {
+				return false;
+			}
+
+			return number;
+		}
+
+        $('#btn-seller-add').click(addProduct);
+
+        function addProduct() {
+
+			let productName = $('#productName').val();
+			let productPrice = $('#productPrice').val();
+			let productDesc = $('#productDesc').val();
+			let ipfsPath = $('#ipfs-address').val();
+
+			//console.log('desc: ' +productDesc);
+
+			if (productName.length < 3 || productName.length > 50 ||
+				productName === '' || productName === 'undefined') {
+				msgHandler.showErrorMsg('Invalid product name!');
+				return;
+			}
+
+			if (!isValidPrice) {
+				msgHandler.showErrorMsg('Invalid price!');
+				return;
+			}
+
+			//productPrice = toFinney(parseFloat(productPrice));
+			productPrice = web3.toWei(productPrice, 'ether');
+
+			let option = {
+				from: currentUserAddress,
+				gas: 3000000
+			};
+
+			marketContract.addProduct(productPrice, productName, productDesc, ipfsPath, option, function (err, result) {
+				if (err) {
+					showErrorMsg(err);
+					return;
+				}
+
+				// tx hash
+				let msg =
+					`Successfully add a product! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${result}">${result}</a>`;
+				msgHandler.showSuccessMsg(msg);
+
+				$('#productName').val('');
+				$('#productPrice').val('');
+				$('#productDesc').val('');
+				$('#ipfs-address').val('');
+				$('#productResource').val('');
+			});
+		}
+
+        $('#btn-upload').click(upload);
+		function upload() {
+
+			const reader = new FileReader();
+			reader.onloadend = function () {
+
+            //const ipfs = IpfsApi('77.71.61.85', 5001); // Connect to IPFS
+            const buf = buffer.Buffer(reader.result); // Convert data into buffer
+				
+				
+            let data = {
+                buffer : buf
+            }
+
+            $.ajax({
+                url: '/ipfs/upload',
+                type: 'POST',
+                //processData: false,
+                //contentType: false,
+                contentType: 'application/json',
+                //contentType: 'application/octet-stream',  
+                data: JSON.stringify(data),
+                //data : formData,
+                success : function(res) {
+                    
+                    $('#ipfs-address').val(res);
+                    let url = `https://ipfs.io/ipfs/${res}`;
+                    //console.log(url);
+
+                    $('#output').removeClass('hide-me');
+                    $('#output').html(`<a href='${url}'>${url}</a>`)
+                    $('#output').show();
+                },
+                error : function(e) {
+                    console.log(e);
+                }
+            });
+			}
+
+			const photo = document.getElementById("productResource");
+			reader.readAsArrayBuffer(photo.files[0]); // Read Provided File
+		}
+
+    }
+})
+
+</script>

@@ -1,0 +1,145 @@
+<div class="row seller-wrapper">
+    <div class="col-xs-12 text-center">
+        <h1><b>Register as Seller</b></h1>
+    </div>
+
+    <br>
+
+    <div class="col-xs-12 text-center"><h3>this service cost some tokens :)</h3></div>
+
+    <div class="form-group col-xs-8 col-xs-offset-2">
+
+        <br>
+        <br>
+        <br>
+
+        <div class="form-label"><label for="userAddress" class="form">Your address</label></div>
+        <input class="form-control" id="userAddress" type="text" readonly>
+        <br>
+        <button id="btn-seller-register" type="button" class="btn btn-default">Register</button>
+    </div>
+
+</div>
+
+<script>
+
+window.addEventListener('load', function(){
+    if(hasMetaMask){
+
+        function showLoader(){
+            loader.start();
+            $('.seller-wrapper').hide();
+        }
+
+        function hideLoader(){
+            loader.stop();
+            $('.seller-wrapper').show();
+        }
+
+        $('#btn-seller-register').click(isSeller);
+
+        let option = {
+            from: currentUserAddress,
+            gas: 3000000
+        };
+
+        function isSeller(){
+
+            showLoader();
+            
+            marketContract.userIsSeller(option, function(err, res){
+                if (err) {
+                    msgHandler.showErrorMsg(err);
+                    return;
+                }
+
+                if(res){
+                    msgHandler.showInfoMsg('User already registered as seller!');
+                    hideLoader();
+                } else {
+                    registerAsSeller();
+                }
+            })
+        }
+
+        function registerAsSeller() {
+
+            //contract.getNumberOfProducts(option, function (err, result) {
+            //});
+
+            let approveEvent = tokenContract.Approval();
+            let tempPrice = '';
+
+            marketContract.registerTax.call(function(err, price){
+                if (err) {
+                    msgHandler.showErrorMsg(err);
+                    hideLoader();
+                    return;
+                }
+
+                tempPrice = JSON.parse(price);
+                //console.log(JSON.parse(price));
+                
+                // show price
+                //msgHandler.showSuccessMsg(tempPrice);
+                
+                // confirm
+                if(!confirm(`Did you agree register tax: ${tempPrice}?`)){
+                    hideLoader();
+                    return; 
+                }
+                
+                tokenContract.approve(contractAddress, tempPrice , function(err, res){
+                    if (err) {
+                        msgHandler.showErrorMsg(err);
+                        hideLoader();
+                        return;
+                    }
+
+                    //console.log('approve result');
+                    //console.log(res);
+                });
+            });
+
+            approveEvent.watch(function(err, res){
+                if (err) {
+                    msgHandler.showErrorMsg(err);
+                    hideLoader();
+                    return;
+                }
+
+                //console.log('event result');
+                //console.log(res);
+
+
+                // check result for needed args
+                let isMyEvent =  res.args.owner.toLowerCase() === currentUserAddress.toLowerCase() && 
+                                    res.args.spender.toLowerCase() === contractAddress.toLowerCase() && 
+                                    JSON.parse(res.args.value) === tempPrice;
+
+                if(isMyEvent){
+                    let tempOpts = {
+                        from: currentUserAddress,
+                        gas: 1000000
+                    };
+                
+                    marketContract.registerAsSeller(tempOpts, function(err, res){
+                        if (err) {
+                            msgHandler.showErrorMsg(err);
+                            hideLoader();
+                            return;
+                        }
+                
+                        let msg =
+					    `Successfully register as seller! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${res}">${res}</a>`;
+                        msgHandler.showSuccessMsg(msg);
+                        hideLoader();
+                    });
+                }
+            });
+        }
+    }
+})
+    
+
+</script>

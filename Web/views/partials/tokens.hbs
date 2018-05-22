@@ -1,0 +1,75 @@
+<div class="row">
+    <div class="col-xs-12 text-center">
+        <h1><b>Buy tokens</b></h1>
+    </div>
+
+    <br>
+
+    <div class="form-group col-xs-8 col-xs-offset-2">
+
+        <br>
+        <br>
+        <br>
+
+        <div class="form-group">
+            <div class="form-label">
+                <label for="userAddress" class="form">Your address</label>
+            </div>
+            <input class="form-control" id="userAddress" type="text" readonly>
+        </div>
+
+        <div class="form-group">
+            <div class="form-label">
+                <label for="token-amount" class="form">Tokens</label>
+                <i> = 1 unit x 1 Ether(1 * 10^18)</i>
+            </div>
+            <input class="form-control" id="token-amount" type="number" value="1" step="0.1" min="0">
+        </div>
+
+        
+        <br>
+        <button id="btn-buy-token" type="button" class="btn btn-default">Buy</button>
+    </div>
+
+</div>
+
+<script>
+
+window.addEventListener('load', function(){
+    if(hasMetaMask){
+
+        $('#btn-buy-token').click(buyToken);
+
+        function buyToken() {
+
+            let tkns = $('#token-amount').val();
+
+            let parsed = parseFloat(tkns)
+            if(isNaN(parsed) || parsed < 0){
+                msgHandler.showErrorMsg('Value should be a number and cannot be smaller than 0(zero)!');
+                return;
+            }
+
+            let options = {
+                from: currentUserAddress,
+                value: web3.toWei(tkns, 'ether'),
+                gas: 3000000
+            };
+
+            //buy tokens
+            tokenContract.buyTokens(options, function(err, res){
+                if (err) {
+                    msgHandler.showErrorMsg(err);
+                    return;
+                }
+
+                let msg =
+					    `Successfully buy tokens ${tkns}! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${res}">${res}</a>`;
+                msgHandler.showSuccessMsg(msg);
+            });
+        }
+    }
+})
+    
+
+</script>

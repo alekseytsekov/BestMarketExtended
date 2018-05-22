@@ -1,0 +1,67 @@
+<div class="row">
+    <div class="col-xs-12 text-center">
+        <h1><b>Get Token balance</b></h1>
+    </div>
+
+    <br>
+
+    <div class="form-group col-xs-8 col-xs-offset-2">
+
+        <br>
+        <br>
+        <br>
+
+        <div class="form-group">
+            <div class="form-label">
+                <label for="userAddress" class="form">Your address</label>
+            </div>
+            <input class="form-control" id="userAddress" type="text" readonly>
+        </div>
+
+        <div class="form-group">
+            <div class="form-label">
+                <label for="token-amount" class="form">Tokens</label>
+            </div>
+            <input class="form-control" id="token-amount" type="text" readonly>
+        </div>
+
+        
+        <br>
+        <button id="btn-get-token" type="button" class="btn btn-default">Get</button>
+    </div>
+
+</div>
+
+<script>
+
+window.addEventListener('load', function(){
+    if(hasMetaMask){
+
+        $('#btn-get-token').click(getToken);
+
+        function getToken() {
+
+            
+
+
+            let options = {
+                from: currentUserAddress,
+                gas: 3000000
+            };
+
+            //get tokens
+            tokenContract.balanceOf(currentUserAddress, function(err, res){
+                if (err) {
+                    msgHandler.showErrorMsg(err);
+                    return;
+                }
+
+                $('#token-amount').val(res);
+                console.log(res);
+            });
+        }
+    }
+})
+    
+
+</script>
