@@ -299,6 +299,10 @@ contract MarketToken is MintableToken {
         }
     }
 
+    function withdraw(uint256 amount) public returns(bool) {
+
+    }
+
 }
 
 contract BestMarket is Ownable {
@@ -415,7 +419,7 @@ contract BestMarket is Ownable {
         
     }
 
-    function buyProduct(string _productName) public isContractInitialized returns (uint256, address) { //(uint, string, string, string)
+    function buyProduct(string _productName) public isContractInitialized returns (uint price, string name, string description, string ipfsPath) { 
         
         bytes32 hashedName = keccak256(_productName);
         
@@ -426,31 +430,25 @@ contract BestMarket is Ownable {
         uint256 sellerRemainder = allProducts[productByName[hashedName]].price.sub(dealFee);
         
         // check fee/price
-        require(mt.allowance(msg.sender, address(this)) == dealFee);
-        require(mt.allowance(msg.sender, allProducts[productByName[hashedName]].seller) == sellerRemainder);
+        require(mt.allowance(msg.sender, address(this)) ==  allProducts[productByName[hashedName]].price);
         
-        // contract fee
-        mt.transferFrom(msg.sender, address(this), dealFee);
-        // to seller
-        mt.transferFrom(msg.sender, allProducts[productByName[hashedName]].seller, sellerRemainder);
+        // transfer all to this contract
+        mt.transferFrom(msg.sender, address(this), allProducts[productByName[hashedName]].price);
+
+        mt.transfer(allProducts[productByName[hashedName]].seller, sellerRemainder);
         
         BuyProduct(msg.sender, now, allProducts[productByName[hashedName]].price, allProducts[productByName[hashedName]].name);
         
-        return (25, allProducts[productByName[hashedName]].seller);
-        // return (allProducts[productByName[hashedName]].price, 
-        //         allProducts[productByName[hashedName]].name, 
-        //         allProducts[productByName[hashedName]].description, 
-        //         allProducts[productByName[hashedName]].ipfsPath);
+        return (allProducts[productByName[hashedName]].price, 
+                allProducts[productByName[hashedName]].name, 
+                allProducts[productByName[hashedName]].description, 
+                allProducts[productByName[hashedName]].ipfsPath);
     } 
     
-    // Withdraw ?!?!?!?! 
+    ////Withdraw ?!?!?!?! 
     // function withdraw(uint256 amountTkns) public isSeller {
         
-    //     //TODO
-        
     //     require(amountTkns > 0 && mt.balanceOf(msg.sender) >= amountTkns);
-        
-    //     //balanceOf[msg.sender] -= amountTkns;
     //     require(mt.approve(msg.sender, amountTkns));
         
     //     uint tempTkns = amountTkns;
@@ -468,7 +466,6 @@ contract BestMarket is Ownable {
         
         return (allProducts[productByName[keccak256(_productName)]].price, allProducts[productByName[keccak256(_productName)]].seller);
     }
-    
     
     function getNumberOfProducts() public view returns (uint) {
         return allProducts.length;

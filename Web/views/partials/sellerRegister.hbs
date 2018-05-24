@@ -64,9 +64,6 @@ window.addEventListener('load', function(){
 
         function registerAsSeller() {
 
-            //contract.getNumberOfProducts(option, function (err, result) {
-            //});
-
             let approveEvent = tokenContract.Approval();
             let tempPrice = '';
 
@@ -80,11 +77,8 @@ window.addEventListener('load', function(){
                 tempPrice = JSON.parse(price);
                 //console.log(JSON.parse(price));
                 
-                // show price
-                //msgHandler.showSuccessMsg(tempPrice);
-                
                 // confirm
-                if(!confirm(`Did you agree register tax: ${tempPrice}?`)){
+                if(!confirm(`Will you buy a product at this price: ${web3.fromWei(tempPrice, 'ether')} tokens(mt)?`)){
                     hideLoader();
                     return; 
                 }

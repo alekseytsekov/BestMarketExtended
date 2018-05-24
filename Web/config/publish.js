@@ -7,10 +7,7 @@
 	//const web3 = new Web3('http://127.0.0.1:8545');
 
 	const ownerAddress = "0x627306090abab3a6e1400e9345bc60c78a8bef57";
-	//let account = '';
-	//web3.eth.getAccounts().then(r => account = r[0]);
 	//let accs = await web3.eth.getAccounts();
-
 
 	const code = fs.readFileSync('./../../Truffle/contracts/bestMarket-extended.sol').toString();
 	const compiledCode = solc.compile(code);
@@ -28,7 +25,7 @@
 	const mtInstance = await mtContract
 			.deploy({
 				data: mtByteCode,
-				arguments : [ web3.utils.toWei('1000000', 'ether') ]
+				arguments : [ web3.utils.toWei('1000', 'ether') ]
 			})
 			.send({
 				from: ownerAddress,
@@ -64,8 +61,6 @@
 			//gasPrice: '3000',
 		});
 
-	
-
 	data.owner = ownerAddress;
 	data.address = marketInstance.options.address;
 	data.abi = abiDefinition;
@@ -81,13 +76,8 @@
 		//console.log('address: ' + data.address);
 	});
 
-	//console.log(`Contract is deployed!`);
-	//console.log(`Address: ${JSON.stringify(marketInstance.options)}`);
 	let res = await marketInstance.methods.init(mtAddress).send({ from : ownerAddress, gas : 100000 });
 
 	//console.log(res);// https://ethereum.stackexchange.com/questions/12051/transaction-receipt-has-contractaddress-as-null 
-
-	// let regTax = await marketInstance.methods.registerTax().call();
-	// console.log(regTax);
 
 })()

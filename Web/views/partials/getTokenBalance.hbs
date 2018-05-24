@@ -41,9 +41,6 @@ window.addEventListener('load', function(){
 
         function getToken() {
 
-            
-
-
             let options = {
                 from: currentUserAddress,
                 gas: 3000000
@@ -56,8 +53,8 @@ window.addEventListener('load', function(){
                     return;
                 }
 
-                $('#token-amount').val(res);
-                console.log(res);
+                $('#token-amount').val(web3.fromWei(res, 'ether') + ' tokens(mt)');
+                //console.log(res);
             });
         }
     }
