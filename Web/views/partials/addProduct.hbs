@@ -124,15 +124,16 @@ window.addEventListener('load', function(){
 
 			//productPrice = toFinney(parseFloat(productPrice));
 			productPrice = web3.toWei(productPrice, 'ether');
+            //console.log(productPrice);
 
 			let option = {
 				from: currentUserAddress,
-				gas: 3000000
+				gas: 4000000
 			};
 
 			marketContract.addProduct(productPrice, productName, productDesc, ipfsPath, option, function (err, result) {
 				if (err) {
-					showErrorMsg(err);
+					msgHandler.showErrorMsg(err);
 					return;
 				}
 

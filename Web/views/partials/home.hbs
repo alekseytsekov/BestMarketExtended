@@ -87,7 +87,7 @@
                     let sellerAddress = res[1];
                     
                     // confirm
-                    if(!confirm(`Did you agree product price: ${tempPrice}?`)){
+                    if(!confirm(`Will you buy a product at this price: ${tempPrice}?`)){
                         hideLoader();
                         return; 
                     }
@@ -120,9 +120,6 @@
                                     hideLoader();
                                     return;
                                 }
-
-                                //console.log('approve result');
-                                //console.log(res);
                             });
 
                         });
@@ -146,15 +143,18 @@
                         
                         console.log('my event');
 
-                        marketContract.buyProduct(name, option, function (err, res) {
+                        marketContract.buyProduct(name, option, function (err, resss) {
                             if (err) {
                                 msgHandler.showErrorMsg(err);
                                 hideLoader();
                                 return;
                             }
 
-                            let msg =
-                                `Successfully buy a product '${name}'! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${res}">${res}</a>`;
+                            console.log(resss);
+                            console.log(resss[0]);
+                            console.log(resss[1]);
+
+                            let msg = `Successfully buy a product '${name}'! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${resss}">${resss}</a>`;
                             msgHandler.showSuccessMsg(msg);
                             hideLoader();
                         });

@@ -366,7 +366,6 @@ contract BestMarket is Ownable {
         fee = 5; //percent
     }
     
-    
     //seller section
     function userIsSeller() public view returns (bool){
         return sellers[msg.sender];
@@ -415,52 +414,53 @@ contract BestMarket is Ownable {
         RegisterEvent(msg.sender, registerTax, now);
         
     }
-    
-    function buyProduct(string _productName) public isContractInitialized returns (uint, string, string, string) {
+
+    function buyProduct(string _productName) public isContractInitialized returns (uint256, address) { //(uint, string, string, string)
         
         bytes32 hashedName = keccak256(_productName);
         
         require(isProductExist[hashedName]);
         require(buyers[msg.sender]);
         
-        uint dealFee = allProducts[productByName[hashedName]].price.div(100).mul(fee);
-        uint sellerRemainder = allProducts[productByName[hashedName]].price.sub(dealFee);
+        uint256 dealFee = allProducts[productByName[hashedName]].price.div(100).mul(fee);
+        uint256 sellerRemainder = allProducts[productByName[hashedName]].price.sub(dealFee);
         
-        // ??? check fee/price
+        // check fee/price
         require(mt.allowance(msg.sender, address(this)) == dealFee);
-        //require(mt.allowance(msg.sender, allProducts[productByName[hashedName]].seller) == sellerRemainder);
+        require(mt.allowance(msg.sender, allProducts[productByName[hashedName]].seller) == sellerRemainder);
         
         // contract fee
-        //mt.transferFrom(msg.sender, address(this), dealFee);
+        mt.transferFrom(msg.sender, address(this), dealFee);
         // to seller
-        //mt.transferFrom(msg.sender, allProducts[productByName[hashedName]].seller, sellerRemainder);
+        mt.transferFrom(msg.sender, allProducts[productByName[hashedName]].seller, sellerRemainder);
         
         BuyProduct(msg.sender, now, allProducts[productByName[hashedName]].price, allProducts[productByName[hashedName]].name);
         
-        return (allProducts[productByName[hashedName]].price, 
-                allProducts[productByName[hashedName]].name, 
-                allProducts[productByName[hashedName]].description, 
-                allProducts[productByName[hashedName]].ipfsPath);
+        return (25, allProducts[productByName[hashedName]].seller);
+        // return (allProducts[productByName[hashedName]].price, 
+        //         allProducts[productByName[hashedName]].name, 
+        //         allProducts[productByName[hashedName]].description, 
+        //         allProducts[productByName[hashedName]].ipfsPath);
     } 
     
     // Withdraw ?!?!?!?! 
-    function withdraw(uint256 amountTkns) public isSeller {
+    // function withdraw(uint256 amountTkns) public isSeller {
         
-        //TODO
+    //     //TODO
         
-        require(amountTkns > 0 && mt.balanceOf(msg.sender) >= amountTkns);
+    //     require(amountTkns > 0 && mt.balanceOf(msg.sender) >= amountTkns);
         
-        //balanceOf[msg.sender] -= amountTkns;
-        require(mt.approve(msg.sender, amountTkns));
+    //     //balanceOf[msg.sender] -= amountTkns;
+    //     require(mt.approve(msg.sender, amountTkns));
         
-        uint tempTkns = amountTkns;
-        amountTkns = 0;
-        mt.transferFrom(msg.sender, owner, tempTkns);
+    //     uint tempTkns = amountTkns;
+    //     amountTkns = 0;
+    //     mt.transferFrom(msg.sender, owner, tempTkns);
         
-        uint256 tempEth = tempTkns.div(1); // mt.exchangeRate()
+    //     uint256 tempEth = tempTkns.div(1); // mt.exchangeRate()
         
-        msg.sender.transfer(tempEth);
-    }
+    //     msg.sender.transfer(tempEth);
+    // }
     
     // view section
     function getProductPriceSellerAddr(string _productName) public view returns (uint, address) {
