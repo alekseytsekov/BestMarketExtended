@@ -71,14 +71,14 @@ window.addEventListener('load', function(){
 
                 if(isMyEvent){
                     
-                    console.log('my event');
-
                     marketContract.buyProduct(name, option, function (err, res) {
                         if (err) {
                             msgHandler.showErrorMsg(err);
                             hideLoader();
                             return;
                         }
+
+                        console.log(res);
 
                         let msg = `Successfully buy a product '${name}'! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${res}">${res}</a>`;
                         msgHandler.showSuccessMsg(msg);

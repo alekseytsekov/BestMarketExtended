@@ -419,7 +419,7 @@ contract BestMarket is Ownable {
         
     }
 
-    function buyProduct(string _productName) public isContractInitialized returns (uint price, string name, string description, string ipfsPath) { 
+    function buyProduct(string _productName) public isContractInitialized returns (uint price, string name, string desc, string ipfs) { 
         
         bytes32 hashedName = keccak256(_productName);
         
