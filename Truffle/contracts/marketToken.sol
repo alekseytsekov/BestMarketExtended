@@ -31,18 +31,24 @@ contract MarketToken is MintableToken {
             balances[owner] = balances[owner].sub(amount);
             balances[msg.sender] = balances[msg.sender].add(amount);
 
-            // Broadcast a message to the blockchain
             Transfer(owner, msg.sender, amount);
 
             //Transfer ether to owner
-            owner.transfer(msg.value);
+            //owner.transfer(msg.value);
 
             return amount;
         }
     }
 
-    // function withdraw(uint256 amount) public returns(bool) {
+    function withdraw(uint256 amount) public {
+        require(amount > 0 && balanceOf(msg.sender) >= amount);
+        require(address(this).balance >= amount);
+        
+        uint256 temp = amount;
+        amount = 0;
+        balances[msg.sender] = balances[msg.sender].sub(temp);
 
-    // }
+        msg.sender.transfer(temp);
+    }
 
 }

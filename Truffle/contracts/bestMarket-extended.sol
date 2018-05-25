@@ -289,19 +289,25 @@ contract MarketToken is MintableToken {
             balances[owner] = balances[owner].sub(amount);
             balances[msg.sender] = balances[msg.sender].add(amount);
 
-            // Broadcast a message to the blockchain
             Transfer(owner, msg.sender, amount);
 
             //Transfer ether to owner
-            owner.transfer(msg.value);
+            //owner.transfer(msg.value);
 
             return amount;
         }
     }
 
-    // function withdraw(uint256 amount) public returns(bool) {
+    function withdraw(uint256 amount) public {
+        require(amount > 0 && balanceOf(msg.sender) >= amount);
+        require(address(this).balance >= amount);
+        
+        uint256 temp = amount;
+        amount = 0;
+        balances[msg.sender] = balances[msg.sender].sub(temp);
 
-    // }
+        msg.sender.transfer(temp);
+    }
 
 }
 
@@ -430,11 +436,10 @@ contract BestMarket is Ownable {
         uint256 sellerRemainder = allProducts[productByName[hashedName]].price.sub(dealFee);
         
         // check fee/price
-        require(mt.allowance(msg.sender, address(this)) ==  allProducts[productByName[hashedName]].price);
+        require(mt.allowance(msg.sender, address(this)) == allProducts[productByName[hashedName]].price);
         
         // transfer all to this contract
         mt.transferFrom(msg.sender, address(this), allProducts[productByName[hashedName]].price);
-
         mt.transfer(allProducts[productByName[hashedName]].seller, sellerRemainder);
         
         BuyProduct(msg.sender, now, allProducts[productByName[hashedName]].price, allProducts[productByName[hashedName]].name);
@@ -444,21 +449,6 @@ contract BestMarket is Ownable {
                 allProducts[productByName[hashedName]].description, 
                 allProducts[productByName[hashedName]].ipfsPath);
     } 
-    
-    ////Withdraw ?!?!?!?! 
-    // function withdraw(uint256 amountTkns) public isSeller {
-        
-    //     require(amountTkns > 0 && mt.balanceOf(msg.sender) >= amountTkns);
-    //     require(mt.approve(msg.sender, amountTkns));
-        
-    //     uint tempTkns = amountTkns;
-    //     amountTkns = 0;
-    //     mt.transferFrom(msg.sender, owner, tempTkns);
-        
-    //     uint256 tempEth = tempTkns.div(1); // mt.exchangeRate()
-        
-    //     msg.sender.transfer(tempEth);
-    // }
     
     // view section
     function getProductPriceSellerAddr(string _productName) public view returns (uint, address) {

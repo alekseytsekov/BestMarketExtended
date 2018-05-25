@@ -10,7 +10,11 @@
 	//let accs = await web3.eth.getAccounts();
 
 	const code = fs.readFileSync('./../../Truffle/contracts/bestMarket-extended.sol').toString();
+	//const code = fs.readFileSync('./../../Truffle/contracts/bestMarket.sol').toString();
 	const compiledCode = solc.compile(code);
+
+	//const tokenCode = fs.readFileSync('./../../Truffle/contracts/marketToken.sol').toString();
+	//const tokenCompiledCode = solc.compile(tokenCode);
 
 	// best market extended
 	const abiDefinition = JSON.parse(compiledCode.contracts[':BestMarket'].interface);

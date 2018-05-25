@@ -60,11 +60,13 @@ contract('BestMarket', function (accounts) {
     };
 
     // run tests => 
-    let deployedPureContract = false;
-    let initMarketContract = false;
-    let deployedTokenContract = true;
+    let deployBestMarketContract = true;
+    let initBestMarketContract = true;
+    let afterInitMarketContract = true;
+    let deployTokenContract = true;
+    let withdraw = true;
 
-    if (deployedPureContract) {
+    if (deployBestMarketContract) {
 
         describe('Deploy pure market contract', () => {
             beforeEach(async function () {
@@ -183,32 +185,14 @@ contract('BestMarket', function (accounts) {
                     assert.isTrue(true);
                 }
             });
-
-            // it("Owner try withdraw funds. Should throw exception. Balance is 0.", async function () {
-
-            //     try {
-            //         await marketInstance.withdraw(ownerOptions);
-            //         assert.isTrue(false, 'Successfully withdraw some funds!');
-            //     } catch (e) {
-            //         assert.isTrue(true);
-            //     }
-            // });
-
-            // it("Get price of long name. Should return 0.5 ether. domain name length range is greater than 15 inclusive!", async function () {
-
-            //     let price = await marketInstance.getPrice('domainaleksaleks');
-
-            //     assert.equal(toEthers(0.5), JSON.parse(price), 'Price does not match!');
-            // });
         });
 
     }
 
-    if(initMarketContract){
+    if(initBestMarketContract){
         describe('Init contract', () => {
             beforeEach(async function () {
                 marketInstance = await marketContract.new(ownerOptions);
-
                 tokenInstance = await tokenContract.new(1000000000000000000000, ownerOptions);
 
                 await marketInstance.init(tokenInstance.address, ownerOptions);
@@ -245,7 +229,156 @@ contract('BestMarket', function (accounts) {
         });
     }
 
-    if(deployedTokenContract){
+    if(afterInitMarketContract){
+        describe('After init Best Market contract', () => {
+            beforeEach(async function () {
+                marketInstance = await marketContract.new(ownerOptions);
+                tokenInstance = await tokenContract.new(10000000000000000000000, ownerOptions);
+
+                await marketInstance.init(tokenInstance.address, ownerOptions);
+            });
+
+            it("Register seller correct.", async function () {
+
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                let approveData = await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+
+                let isSeller = await marketInstance.userIsSeller(sellerOptions);
+                if(isSeller){
+                    assert.isTrue(false, "Register as seller is incorrect.");
+                }
+
+                let regData = await marketInstance.registerAsSeller(sellerOptions);
+                isSeller = await marketInstance.userIsSeller(sellerOptions);
+
+                // we dont validate OpenZeppelin contracts because those contracts have their own tests
+
+                //let eventName = approveData.logs[0].event === 'Approval';
+                //let eventFrom = approveData.logs[0].args.owner === sellerOptions.from;
+                //let eventTo = approveData.logs[0].args.spender === marketInstance.address;
+                //let eventValue = JSON.parse(approveData.logs[0].args.value) === ether;
+
+                assert.equal(true, isSeller, "Register as seller is incorrect.");
+            });
+
+            it("Register buyer correct.", async function () {
+
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                let approveData = await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+
+                let isBuyer = await marketInstance.userIsBuyer(buyerOptions);
+                if(isBuyer){
+                    assert.isTrue(false, "Register as buyer is incorrect.");
+                }
+
+                let regData = await marketInstance.registerAsBuyer(buyerOptions);
+                isBuyer = await marketInstance.userIsBuyer(buyerOptions);
+
+                assert.equal(true, isBuyer, "Register as buyer is incorrect.");
+            });
+
+            it("Add product correct.", async function () {
+
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                let approveData = await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                let regData = await marketInstance.registerAsSeller(sellerOptions);
+                let numOfProducts = await marketInstance.getNumberOfProducts(sellerOptions);
+                //console.log(JSON.parse(numOfProducts));
+                if(parseInt(JSON.parse(numOfProducts)) > 0){
+                    assert.isTrue(false, "There are products!");
+                }
+                
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                let prod = await marketInstance.getProduct(0, sellerOptions);
+
+                assert.equal(product1.productName, prod[1], "Cannot add product.");
+            });
+
+            it("Buy product correct.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                let regData = await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product2.price, product2.productName, product2.description, product2.ipfsPath, sellerOptions);
+                let sellerBalance = await tokenInstance.balanceOf(sellerOptions.from);
+                //console.log('seller balance before');
+                if(parseInt(JSON.parse(sellerBalance)) > 0) {
+                    assert.isTrue(false, 'Seller balance is not 0!');
+                }
+
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                await tokenInstance.approve(marketInstance.address, product2.price, buyerOptions);
+                let allowance = await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                let buyData = await marketInstance.buyProduct(product2.productName, buyerOptions);
+                //console.log(buyData.logs[0].args);
+                let boughtProductName = buyData.logs[0].args.productName;
+                let boughtOwner = buyData.logs[0].args.addr;
+
+                assert.equal(true, product2.productName === boughtProductName && boughtOwner === buyerOptions.from, "Cannot add product.");
+            });
+
+            it("Seller balance should be updated correctly.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product2.price, product2.productName, product2.description, product2.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product2.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product2.productName, buyerOptions);
+                
+
+                let sellerBalance = await tokenInstance.balanceOf(sellerOptions.from);
+                //console.log('seller balance after'); // 475000000000000000
+                //console.log(JSON.parse(sellerBalance));
+
+                assert.equal('475000000000000000', JSON.parse(sellerBalance), "Seller balance is not updated correctly!");
+            });
+
+            it("Buyer balance should be updated correctly.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product2.price, product2.productName, product2.description, product2.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product2.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product2.productName, buyerOptions);
+                
+
+                let buyerBalance = await tokenInstance.balanceOf(buyerOptions.from);
+
+                assert.equal('3500000000000000000', JSON.parse(buyerBalance), "Buyer balance is not updated correctly!");
+            });
+        });
+    }
+
+    if(deployTokenContract){
         describe('Deploy Market token contract', () => {
             beforeEach(async function () {
                 tokenInstance = await tokenContract.new(1000000000000000000000, ownerOptions);
@@ -296,956 +429,223 @@ contract('BestMarket', function (accounts) {
                     assert.isTrue(true);
                 }
             });
+
+            it("Client buy tokens. Balance should be the same!", async function () {
+
+                //sellerPayableOptions.value = ether;
+                let data = await tokenInstance.buyTokens(sellerPayableOptions);
+                let balance = await tokenInstance.balanceOf(sellerPayableOptions.from);
+
+                let boughtTokens = JSON.parse(data.logs[0].args.value);
+                
+                assert.equal(boughtTokens, JSON.parse(balance), "Different amount of balance.");
+            });
+
+            it("Clients balance should be empty(0)!", async function () {
+
+                let sellerBalance = await tokenInstance.balanceOf(sellerOptions.from);
+                let buyerBalance = await tokenInstance.balanceOf(buyerOptions.from);
+
+                assert.equal(0, JSON.parse(sellerBalance), "Balance is not empty!");
+                assert.equal(0, JSON.parse(buyerBalance), "Balance is not empty!");
+            });
         });
     }
 
-    // if (registerDomainTests) {
+    if(withdraw){
 
-    //     describe('On domain register. For all TIME TRAVEL test you should start TRUFFLE!', () => {
-    //         beforeEach(async function () {
-    //             marketInstance = await ddns.new({
-    //                 from: owner
-    //             });
-    //         });
+        describe('Withdraw/payment tests', () => {
+            beforeEach(async function () {
+                marketInstance = await marketContract.new(ownerOptions);
+                tokenInstance = await tokenContract.new(10000000000000000000000, ownerOptions);
 
-    //         it("Should register domain correctly for 1 ether.", async function () {
+                await marketInstance.init(tokenInstance.address, ownerOptions);
+            });
 
-    //             let domainName = 'hello';
+            it("Token Contract should receive 1 ether.", async function() {
 
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let isExist = await marketInstance.isDomainRegister(domainName);
-
-    //             assert.equal(true, JSON.parse(isExist), "The expected owner is not set");
-    //         });
-
-    //         it("Should register domain correctly for 0.8 ether.", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //             let isExist = await marketInstance.isDomainRegister(domainName);
-
-    //             assert.equal(true, JSON.parse(isExist), "The expected owner is not set");
-    //         });
-
-    //         it("Should register domain correctly for 0.5 ether.", async function () {
-
-    //             let domainName = 'hello_hello_hello';
-
-    //             userOptions.value = toEthers(0.5);
-
-    //             await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-
-    //             let isExist = await marketInstance.isDomainRegister(domainName);
-
-    //             assert.equal(true, JSON.parse(isExist), "The expected owner is not set");
-    //         });
-
-    //         it("Should throw exception when you try to register domain with higher price. Current price is 0.5", async function () {
-
-    //             let domainName = 'hello_hello_hello';
-
-    //             userOptions.value = toEthers(0.7);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Should throw exception when you try to register domain with lower price. Current price is 0.5", async function () {
-
-    //             let domainName = 'hello_hello_hello';
-
-    //             userOptions.value = toEthers(0.3);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Should throw exception when you try to register domain with higher price. Current price is 0.8", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(2);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Should throw exception when you try to register domain with lower price. Current price is 0.8", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.3);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Should throw exception when you try to register domain with higher price. Current price is 1", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(2);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Should throw exception when you try to register domain with lower price. Current price is 1", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(0.95);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip3), userOptions);
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-
-    //         });
-
-    //         it("Register domain correctly, another domain should not exist", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //             let isExist = await marketInstance.isDomainRegister('some domain');
-
-    //             assert.equal(false, JSON.parse(isExist), "The expected owner is not set");
-    //         });
-
-    //         it("Try register domain twice. Different users. Should throw exception!", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             try {
-    //                 secondUserOptions.value = toEthers(1);
-    //                 await marketInstance.register(domainName, ipToHex(ip2), secondUserOptions);
-
-    //                 assert.isTrue(false, 'Domain is registered twice!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-    //         });
-
-    //         it("Try register domain twice. Same user. Should throw exception!", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //                 assert.isTrue(false, 'Domain is registered twice!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-    //         });
-
-    //         it("Try register domain with short name. Should throw exception!", async function () {
-
-    //             let domainName = 'hell';
-
-    //             userOptions.value = toEthers(1);
-
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 //await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-    //         });
-
-    //         it("Try register domain with long name. Should throw exception!", async function () {
-
-    //             let domainName = '0123456789aleks0123456789aleks0123456789aleks0123456789aleks';
-
-    //             userOptions.value = toEthers(1);
-
+                buyerPayableOptions.value = ether;
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                let balance = web3.eth.getBalance(tokenInstance.address);
                 
+                assert.equal(toEthers(1), JSON.parse(balance), "Mismatch token contract ethers!");
+            });
 
-    //             try {
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 //await marketInstance.register(domainName, ipToHex(ip2), userOptions);
+            it("Token Contract should have 0 ether.", async function() {
 
-    //                 assert.isTrue(false, 'Domain is registered!')
-    //             } catch (e) {
-    //                 assert.isTrue(true);
-    //             }
-    //         });
-
-    //         it("Register domain twice. Time span 1 year + 2 day. Different users. Should register!", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             try {
-
-    //                 await utils.timeTravel(web3, year + (day * 2));
-
-    //                 secondUserOptions.value = toEthers(1);
-    //                 await marketInstance.register(domainName, ipToHex(ip2), secondUserOptions);
-
-    //                 assert.isTrue(true)
-    //             } catch (e) {
-
-    //                 assert.isTrue(false, 'Domain cant be registered!');
-    //             }
-    //         });
-
-    //         it("Register domain twice. Time span 1 year + 1 day. Same user. Should register!", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             try {
-
-    //                 await utils.timeTravel(web3, year + day);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //                 assert.isTrue(true)
-    //             } catch (e) {
-
-    //                 assert.isTrue(false, 'Domain cant be registered!');
-    //             }
-    //         });
-
-    //         it("Register Nth unique domains, count should match", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             let numOfDomains = getRandomInt(2, 10);
-
-    //             for (let i = 0; i < numOfDomains; i++) {
-
-    //                 let ipIndex = getRandomInt(0, 3);
-    //                 await marketInstance.register(domainName + '_' + i, ipToHex(ips[ipIndex]), userOptions);
-    //             }
-
-    //             let uniqueDomainCount = await marketInstance.getDomainCount({
-    //                 from: _user
-    //             });
-
-    //             assert.equal(numOfDomains, JSON.parse(uniqueDomainCount), "Count does not match!");
-    //         });
-
-    //         it("Register unique domain twice. Time span 1 year + 1 day. Same user. Count should be 1 !", async function () {
-
-    //             let domainName = 'hello';
-
-    //             userOptions.value = toEthers(1);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             await utils.timeTravel(web3, year + day);
-    //             await marketInstance.register(domainName, ipToHex(ip2), userOptions);
-
-    //             let uniqueDomainCount = await marketInstance.getDomainCount({
-    //                 from: _user
-    //             });
-
-    //             assert.equal(1, JSON.parse(uniqueDomainCount), "Count does not match!");
-    //         });
-
-    //         it("Check IP address of registered domain. Should match", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             // '101.203.1.56'
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let ip = await marketInstance.getIP(domainName, {
-    //                 from: _user
-    //             });
-
-    //             //console.log(ip);
-    //             ip = hex2ip(ip);
-
-    //             assert.equal(ip, ip1, "Invalid IP address");
-    //         });
-
-    //         it("Check owner of registered domain. Should match", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let domainOwner = await marketInstance.getDomainOwner(domainName, {
-    //                 from: _user2
-    //             });
-
-    //             assert.equal(_user, domainOwner, "Owner do not match!");
-    //         });
-
-    //         it("Check owner of registered domain. Should NOT match", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let domainOwner = await marketInstance.getDomainOwner(domainName, {
-    //                 from: _user2
-    //             });
-
-    //             assert.notEqual(_user, _user2, "Owner do not match!");
-    //         });
-
-    //         it("Get domain receipt.", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                 from: _user
-    //             });
-
-    //             //console.log(result[0].length);
-    //             //console.log(JSON.parse(result[0][0]))
-    //             //console.log(JSON.parse(result[1][0]))
-    //             //console.log(JSON.parse(result[2][0]))
-
-    //             let numOfReceipt = result[0].length;
-
-    //             assert.equal(1, numOfReceipt, "Number of receipt does not match!");
-    //         });
-
-    //         it("Try get domain receipt. USer do not own domain!", async function () {
-
-    //             let domainName = 'hello_hello';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //             let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                 from: _user2
-    //             });
-
-    //             let numOfReceipt = result[0].length;
-
-    //             assert.equal(0, numOfReceipt, "Number of receipt does not match!");
-    //         });
-
-    //         it("Get domain receipts. Extend expiration date.", async function () {
-
-    //             let domainName = 'hello_hell';
-
-    //             userOptions.value = toEthers(0.8);
-
-    //             await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //             await marketInstance.extendExpirationDate(domainName, userOptions);
-
-    //             let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                 from: _user
-    //             });
-
-    //             let numOfReceipt = result[0].length;
-
-    //             assert.equal(2, numOfReceipt, "Number of receipt does not match!");
-    //         });
-
-    //         it("Get domain receipt. Add Nth domains", async function () {
-
-    //             let domainName = 'hello_hell';
-
-    //             userOptions.value = toEthers(0.8);
-    //             let numOfDomains = getRandomInt(2, 10);
-    //             let domains = [];
-
-    //             for (let i = 0; i < numOfDomains; i++) {
-    //                 let name = domainName + '_' + i;
-    //                 await marketInstance.register(name, ipToHex(ip1), userOptions);
-
-    //                 domains.push(name);
-    //             }
-
-    //             let countOfReceipt = 0;
-
-    //             //console.log(domains);
-
-    //             for (let i = 0; i < domains.length; i++) {
-    //                 let result = await marketInstance.getOwnerReceiptByDomain(domains[i], {
-    //                     from: _user
-    //                 });
-
-    //                 countOfReceipt += parseInt(result[0].length);
-    //             }
-
-    //             assert.equal(numOfDomains, countOfReceipt, "Number of receipt does not match!");
-    //         });
-
-    //     });
-    // }
-
-    // describe('Functionality', () => {
-
-    //     beforeEach(async function () {
-    //         marketInstance = await ddns.new({
-    //             from: owner
-    //         });
-    //     });
-
-    //     if (editFunc) {
-
-    //         describe('Edit domain', () => {
-
-    //             it("Edit - Owner should edit ip address.", async function () {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.edit(domainName, ipToHex(ip2), {
-    //                     from: _user
-    //                 });
-    //                 let newIp = await marketInstance.getIP(domainName);
-    //                 newIp = hex2ip(newIp);
-
-    //                 assert.equal(ip2, newIp, "The IP is not edited!");
-    //             });
-
+                let balance = web3.eth.getBalance(tokenInstance.address);
                 
-
-    //             it("Edit - Owner should edit ip address. Multiple domains", async function () {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register('hello1', ipToHex(ip1), userOptions);
-    //                 await marketInstance.register('hello2', ipToHex(ip1), userOptions);
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 await marketInstance.edit(domainName, ipToHex(ip2), {
-    //                     from: _user
-    //                 });
-    //                 let newIp = await marketInstance.getIP(domainName);
-    //                 newIp = hex2ip(newIp);
-
-    //                 assert.equal(ip2, newIp, "The IP is not edited!");
-    //             });
-
-    //             it("Edit - Not owner should NOT edit ip address. Throw exception", async function () {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 let ipEdit = ipToHex(ip2);
-
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.edit(domainName, ipEdit, {
-    //                         from: _user2
-    //                     });
-    //                     let newIp = await marketInstance.getIP(domainName);
-    //                     newIp = hex2ip(newIp);
-    //                     assert.isEqual(false, "Ip address is edited!")
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Edit - Owner should NOT edit ip address of NOT existing domain.  Throw exception", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 let ipEdit = ipToHex(ip2);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.edit('hello1', ipEdit, {
-    //                         from: _user
-    //                     });
-    //                     let newIp = await marketInstance.getIP('hello1');
-    //                     newIp = hex2ip(newIp);
-
-    //                     assert.isEqual(false, "The IP is edited!");
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Edit - Should NOT edit ip address of expired domain. Throw exception", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 let ipEdit = ipToHex(ip2);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 await utils.timeTravel(web3, year + (day * 1));
-
-    //                 try {
-    //                     await marketInstance.edit(domainName, ipEdit, {
-    //                         from: _user
-    //                     });
-
-    //                     let newIp = await marketInstance.getIP(domainName);
-    //                     newIp = hex2ip(newIp);
-
-    //                     assert.isEqual(false, "The IP is edited!");
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //         });
-
-    //     }
-
-    //     if (transferFunc) {
-
-    //         describe('Transfer domain', () => {
-
-    //             ////// Transfer //////
-    //             it("Transfer - Owner should transfer domain.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.transferDomain(domainName, _user2, {
-    //                     from: _user
-    //                 });
-
-    //                 let currentOwner = await marketInstance.getDomainOwner(domainName);
-
-
-    //                 assert.equal(_user2, currentOwner, "The owner is not changed!");
-    //             });
-
-    //             it("Transfer - Owner should transfer domain. Check receipt of the new owner.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.register(domainName + 1, ipToHex(ip1), userOptions);
-    //                 await marketInstance.transferDomain(domainName, _user2, {
-    //                     from: _user
-    //                 });
-
-    //                 let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                     from: _user2
-    //                 });
-    //                 let numOfReceipt = result[0].length;
-
-    //                 assert.equal(1, numOfReceipt, "After transfer receipt does not transfer to the new owner!");
-    //             });
-
-    //             it("Transfer - Owner should transfer domain. Check receipt of the old owner.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.extendExpirationDate(domainName, userOptions);
-    //                 await marketInstance.transferDomain(domainName, _user2, {
-    //                     from: _user
-    //                 });
-
-    //                 let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                     from: _user
-    //                 });
-    //                 let numOfReceipt = result[0].length;
-
-    //                 assert.equal(2, numOfReceipt, "After transfer receipt does not transfer to the new owner!");
-    //             });
-
-    //             it("Transfer - Not owner should NOT transfer domain. Throw exception", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.transferDomain(domainName, owner, {
-    //                         from: _user2
-    //                     });
-    //                     let currentOwner = await marketInstance.getDomainOwner(domainName);
-
-    //                     assert.isTrue(false, "The owner is changed!");
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Transfer - Should NOT transfer domain of NOT existing one. Throw exception", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.transferDomain('hello1', owner, {
-    //                         from: _user
-    //                     });
-
-    //                     assert.isTrue(false, "The domain is transfer!");
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Transfer - Should NOT transfer expired domain. Throw exception", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await utils.timeTravel(web3, year + (day * 1));
-
-    //                 try {
-    //                     await marketInstance.transferDomain(domainName, owner, {
-    //                         from: _user
-    //                     });
-
-    //                     assert.isTrue(false, "The domain is transfer!");
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //         })
-
-    //     }
-
-    //     if (expirationFunc) {
-
-    //         describe('Extend expiration date', () => {
-
-    //             showReceiptListInfo();
-
-    //             //////// Extend expiration date ///////////
-    //             it("Expiration Date - Owner check expiration date after registration.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 let currentTime = utils.web3Now(web3);
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                     from: _user
-    //                 });
-
-    //                 //console.log(result[0].length);
-    //                 //console.log(JSON.parse(result[0][0]))
-    //                 //console.log(JSON.parse(result[1][0]))
-    //                 //console.log(JSON.parse(result[2][0]))
-
-    //                 let expirationDate = parseInt(result[2][0]);
-
-    //                 // console.log('now');
-    //                 // console.log(currentTime);
-    //                 // console.log(currentTime + year);
-    //                 // console.log(expirationDate);
-    //                 // console.log(result[2][0]);
-
-    //                 if (currentTime + year <= expirationDate + 10) {
-    //                     assert.isTrue(true);
-    //                 } else {
-    //                     assert.isTrue(false, 'Expiration date is not same!');
-    //                 }
-
-    //             });
-
-    //             it("Expiration Date - Owner should extend expiration date.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 let currentTime = utils.web3Now(web3);
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.extendExpirationDate(domainName, userOptions);
-
-    //                 let result = await marketInstance.getOwnerReceiptByDomain(domainName, {
-    //                     from: _user
-    //                 });
-    //                 // result from receipt[x][y]
-    //                 // X - 0 - array that contain array of prices
-    //                 // X - 1 - array that contain array of creations
-    //                 // X - 2 - array that contain array of expires
-    //                 //
-    //                 // get second receipt record /index 1/ from ownerReceipt ....
-    //                 // Y - index Nth - is every additional record when extend expiration date or register again is executed
-    //                 let expirationDate = parseInt(result[2][1]);
-
-    //                 if (currentTime + year * 2 <= expirationDate + 10) {
-    //                     assert.isTrue(true);
-    //                 } else {
-    //                     assert.isTrue(false, 'Expiration date is not same!');
-    //                 }
-
-    //             });
-
-    //             it("Expiration Date - Owner should NOT extend expiration date of expired domain. Throw exception!", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 await utils.timeTravel(web3, year + (day * 1));
-
-    //                 try {
-    //                     await marketInstance.extendExpirationDate(domainName, userOptions);
-
-    //                     assert.isTrue(false, 'Expiration date is changed!');
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Expiration Date - Owner should NOT extend expiration date without payment. Throw exception!", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.extendExpirationDate(domainName, {
-    //                         from: _user
-    //                     });
-
-    //                     assert.isTrue(false, 'Expiration date is changed without payment!');
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Expiration Date - Not owner should NOT extend expiration date. Throw exception!", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.extendExpirationDate(domainName, {
-    //                         from: _user2,
-    //                         value: toEthers(1)
-    //                     });
-
-    //                     assert.isTrue(false, 'Expiration date is changed from not owner!');
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Expiration Date - Not owner should NOT extend expiration date without payment. Throw exception!", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.extendExpirationDate(domainName, {
-    //                         from: _user2,
-    //                         value: toEthers(1)
-    //                     });
-
-    //                     assert.isTrue(false, 'Expiration date is changed from not owner!');
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Expiration Date - Should NOT extend expiration date of NOT existing domain.", async function () {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.extendExpirationDate('hello1', userOptions);
-
-    //                     assert.isTrue(false, 'Change expiration date of unregister domain!');
-    //                 } catch (e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //         });
-
-    //     }
-
-    //     if(withdrawFunc){
-
-    //         describe('Withdraw / payments tests', () => {
-    //             ////////////// Withdraw /////////////////
-
-    //             it("Contract should receive 1 ether.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 let balance = web3.eth.getBalance(marketInstance.contract.address);
-                    
-    //                 assert.equal(toEthers(1), balance, "Withdraw does not work correct!");
-    //             });
-
-    //             it("Contract should receive 1.8 ether.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.register('aleksaleks', ipToHex(ip2), { from : _user2, value : toEthers(0.8)});
-
-    //                 let balance = web3.eth.getBalance(marketInstance.contract.address);
-                    
-    //                 assert.equal(toEthers(1.8), balance, "Withdraw does not work correct!");
-    //             });
-
-    //             it("Contract should receive 2.3 ether.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.register('aleksaleks', ipToHex(ip2), { from : _user2, value : toEthers(0.8)});
-    //                 await marketInstance.register('aleksaleksaleks1', ipToHex(ip3), { from : owner, value : toEthers(0.5)});
-
-    //                 let balance = web3.eth.getBalance(marketInstance.contract.address);
-                    
-    //                 assert.equal(toEthers(2.3), balance, "Withdraw does not work correct!");
-    //             });
-
-    //             it("Owner should withdraw 1 /all/ ethers.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 let beforeWithdraw = web3.eth.getBalance(marketInstance.contract.address);
-                    
-    //                 await marketInstance.withdraw({ from : owner});
-
-    //                 let afterWithdraw = web3.eth.getBalance(marketInstance.contract.address);
-
-    //                 assert.equal(0, afterWithdraw, "Withdraw does not work correct!");
-    //             });
-
-    //             it("Owner should withdraw 3.3 /all/ ethers.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-    //                 await marketInstance.register('hello1', ipToHex(ip1), userOptions);
-    //                 await marketInstance.register('aleksaleks', ipToHex(ip2), { from : _user2, value : toEthers(0.8)});
-    //                 await marketInstance.register('aleksaleksaleks1', ipToHex(ip3), { from : owner, value : toEthers(0.5)});
-
-    //                 let beforeWithdraw = web3.eth.getBalance(marketInstance.contract.address);
-                    
-    //                 await marketInstance.withdraw({ from : owner});
-
-    //                 let afterWithdraw = web3.eth.getBalance(marketInstance.contract.address);
-
-    //                 assert.equal(0, afterWithdraw, "Withdraw does not work correct!");
-    //             });
-
-    //             it("NOT owner should try to withdraw. Throw exception!", async function() {
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 let beforeWithdraw = web3.eth.getBalance(marketInstance.contract.address);
-
-    //                 try {
-    //                     await marketInstance.withdraw({ from : _user2});
-    //                     assert.isTrue(false, 'User can use withdraw func!')
-    //                 } catch(e) {
-    //                     assert.isTrue(true);
-    //                 }
-    //             });
-
-    //             it("Not owner should withdraw 1 ether. Balance should be the same /1 ether/.", async function() {
-
-    //                 let domainName = 'hello';
-    //                 userOptions.value = toEthers(1);
-
-    //                 await marketInstance.register(domainName, ipToHex(ip1), userOptions);
-
-    //                 try {
-    //                     await marketInstance.withdraw({ from : _user2});
-    //                     assert.isTrue(false, 'User can use withdraw func!')
-    //                 } catch(e) {
-    //                     assert.isTrue(true);
-    //                 }
-
-    //                 let balance = web3.eth.getBalance(marketInstance.contract.address);
-
-    //                 assert.equal(toEthers(1), balance, "Withdraw does not work correct!");
-    //             });
-    //         });
-
-    //     }
-    // });
+                assert.equal(0, JSON.parse(balance), "Mismatch token contract ethers!");
+            });
+
+            it("User should withdraw his ethers.", async function() {
+
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.withdraw(buyerPayableOptions.value, buyerOptions);
+
+                let afterWithdraw = web3.eth.getBalance(tokenInstance.address);
+
+                assert.equal(0, afterWithdraw, "Withdraw does not work correct!");
+            });
+
+            it("Should throw exception when withdraw value is more than have.", async function() {
+                try{
+                    await tokenInstance.buyTokens(buyerPayableOptions);
+                    await tokenInstance.withdraw(toEthers(2), buyerOptions);
+                    assert.isTrue(false, 'User withdraw more than have!');
+                } catch (e) {
+                    assert.isTrue(true);
+                }
+            });
+
+            it("Should throw exception when owner try withdraw before bought product.", async function() {
+                try{
+                    await tokenInstance.buyTokens(buyerPayableOptions);
+                    await tokenInstance.withdraw(toEthers(1), buyerOptions);
+                    assert.isTrue(false, 'Owner successfully withdrawn!');
+                } catch (e) {
+                    assert.isTrue(true);
+                }
+            });
+
+            it("Seller withdraw his part.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product1.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product1.productName, buyerOptions);
+                
+                try{
+                    await tokenInstance.withdraw(toEthers(0.05), sellerOptions);
+                    assert.isTrue(true);
+                } catch (e) {
+                    assert.isTrue(false, 'Seller cannot withdrawn his funds!');
+                }
+            });
+
+            it("Seller withdraw some of his funds.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product1.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product1.productName, buyerOptions);
+                
+                try{
+                    await tokenInstance.withdraw(toEthers(0.02), sellerOptions);
+                    assert.isTrue(true);
+                } catch (e) {
+                    assert.isTrue(false, 'Seller cannot withdrawn his funds!');
+                }
+            });
+
+            it("Throw exception. Seller try withdraw more than have.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product1.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product1.productName, buyerOptions);
+                
+                try{
+                    await tokenInstance.withdraw(toEthers(0.06), sellerOptions);
+                    assert.isTrue(false, 'Seller withdrawn more!');
+                } catch (e) {
+                    assert.isTrue(true);
+                }
+            });
+
+            it("Owner withdraw all his funds.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product1.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product1.productName, buyerOptions);
+                
+                try{
+                    await tokenInstance.withdraw(toEthers(1 + 5 - 0.05), ownerOptions);
+                    assert.isTrue(true);
+                } catch (e) {
+                    assert.isTrue(false, 'Seller cannot withdraw!');
+                }
+            });
+
+            it("Throw exception. Owner try withdraw more funds.", async function () {
+
+                // seller
+                await tokenInstance.buyTokens(sellerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, sellerOptions);
+                await marketInstance.registerAsSeller(sellerOptions);
+                await marketInstance.addProduct(product1.price, product1.productName, product1.description, product1.ipfsPath, sellerOptions);
+                
+                //buyer
+                buyerPayableOptions.value = '5000000000000000000';
+                await tokenInstance.buyTokens(buyerPayableOptions);
+                await tokenInstance.approve(marketInstance.address, ether, buyerOptions);
+                await marketInstance.registerAsBuyer(buyerOptions);
+
+                //bye
+                await tokenInstance.approve(marketInstance.address, product1.price, buyerOptions);
+                await tokenInstance.allowance(buyerOptions.from, marketInstance.address);
+                await marketInstance.buyProduct(product1.productName, buyerOptions);
+                
+                try{
+                    await tokenInstance.withdraw(toEthers(1 + 5), ownerOptions);
+                    assert.isTrue(false, 'Owner withdrawn more!');
+                } catch (e) {
+                    assert.isTrue(true);
+                }
+            });
+        });
+
+    }
 });
-
 
 function toEthers(amount) {
     return web3._extend.utils.toWei(amount, 'ether');

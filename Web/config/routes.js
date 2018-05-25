@@ -20,7 +20,10 @@ module.exports = app => {
 
     app.get('/product/add', productController.add);
     
+    app.get('/withdraw', homeController.withdraw);
+    
     app.post('/ipfs/upload', ipfsController.upload);
+
 
 
     // handle all path that missing!

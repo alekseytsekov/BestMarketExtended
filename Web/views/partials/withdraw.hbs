@@ -1,0 +1,75 @@
+<div class="row">
+    <div class="col-xs-12 text-center">
+        <h1><b>Withdraw balance</b></h1>
+    </div>
+
+    <br>
+
+    <div class="form-group col-xs-6 col-xs-offset-3">
+
+        <br>
+
+        <div class="form-label"><label for="current-balance" class="form">Contract balance</label></div>
+
+        <div class="col-xs-6">
+
+            <input class="current-balance form-control inline-block" id="current-balance" type="text">
+        </div>
+
+        <div class="col-xs-4">
+            <button id="btn-get-token" type="button" class="btn btn-default inline-block">Get Tkns</button>
+            <button id="btn-withdraw" type="button" class="btn btn-danger inline-block">Withdraw</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+    window.addEventListener('load', async function(){
+        if(hasMetaMask){
+
+            let options = {
+                from: currentUserAddress,
+                gas: 3000000
+            };
+
+            $('#btn-get-token').click(getToken);
+            function getToken() {
+
+                //get tokens
+                tokenContract.balanceOf(currentUserAddress, function(err, res){
+                    if (err) {
+                        msgHandler.showErrorMsg(err);
+                        return;
+                    }
+
+                    $('#current-balance').val(web3.fromWei(res, 'ether'));
+                });
+            }
+
+            $('#btn-withdraw').click(withdraw);
+            function withdraw(){
+
+                let amount = $('#current-balance').val();
+
+                tokenContract.withdraw(web3.toWei(amount, 'ether'), options, function(err, result){
+
+                    if (err) {
+                        msgHandler.showErrorMsg("Something went wrong!");
+                        console.log(err); 
+                        return;
+                    }
+
+                    // tx hash
+                    let msg =
+                    `Successful withdrawal! Transaction hash: <a target="_blank" href="https://ropsten.etherscan.io/tx/${result}">${result}</a>`;
+
+                    msgHandler.showSuccessMsg(msg);
+                    $('#current-balance').val(0 + ' ethers');
+                });
+            }
+        }
+    })
+
+</script>
